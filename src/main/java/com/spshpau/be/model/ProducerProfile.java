@@ -1,5 +1,7 @@
 package com.spshpau.be.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.spshpau.be.model.enums.ExperienceLevel;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -24,8 +26,8 @@ public class ProducerProfile {
     @Column(nullable = false)
     private boolean availability = false;
 
-    @Lob
     @Column(columnDefinition = "TEXT")
+    @Basic(fetch = FetchType.EAGER)
     private String bio;
 
     @Enumerated(EnumType.STRING)
@@ -37,6 +39,7 @@ public class ProducerProfile {
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId
     @JoinColumn(name = "user_id")
+    @JsonBackReference
     private User user;
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -45,6 +48,7 @@ public class ProducerProfile {
             joinColumns = @JoinColumn(name = "producer_profile_id"),
             inverseJoinColumns = @JoinColumn(name = "genre_id")
     )
+    @JsonManagedReference
     private Set<Genre> genres = new HashSet<>();
 
     // --- Helper methods for managing relationships ---

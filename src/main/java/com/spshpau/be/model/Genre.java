@@ -1,5 +1,6 @@
 package com.spshpau.be.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,9 +25,11 @@ public class Genre {
     private String name;
 
     @ManyToMany(mappedBy = "genres")
+    @JsonBackReference
     private Set<ProducerProfile> producerProfiles = new HashSet<>();
 
     @ManyToMany(mappedBy = "genres")
+    @JsonBackReference
     private Set<ArtistProfile> artistProfiles = new HashSet<>();
 
     public Genre(String name) {

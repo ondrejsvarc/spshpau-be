@@ -1,5 +1,6 @@
 package com.spshpau.be.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -37,12 +38,14 @@ public class User {
             cascade = CascadeType.ALL,
             fetch = FetchType.LAZY,
             orphanRemoval = true)
+    @JsonManagedReference
     private ProducerProfile producerProfile;
 
     @OneToOne(mappedBy = "user",
             cascade = CascadeType.ALL,
             fetch = FetchType.LAZY,
             orphanRemoval = true)
+    @JsonManagedReference
     private ArtistProfile artistProfile;
 
     // --- Helper methods ---
