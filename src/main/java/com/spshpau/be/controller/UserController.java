@@ -1,13 +1,18 @@
 package com.spshpau.be.controller;
 
 import com.spshpau.be.dto.userdto.LocationUpdateRequest;
+import com.spshpau.be.dto.userdto.UserSummaryDto;
 import com.spshpau.be.model.User;
+import com.spshpau.be.model.enums.ExperienceLevel;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.List;
 import java.util.UUID;
 
 
@@ -51,4 +56,28 @@ public interface UserController {
 
     ResponseEntity<Void> deactivateUser(@PathVariable UUID userId);
     ResponseEntity<Void> reactivateUser(@PathVariable UUID userId);
+
+    /**
+     * Searches/filters active users based on provided criteria, excluding the caller.
+     *
+     * @param jwt         The JWT token representing the authenticated principal.
+     * @param genreIds    Optional list of Genre UUIDs to filter by.
+     * @param skillIds    Optional list of Skill UUIDs to filter by.
+     * @param hasArtist   Optional boolean to filter by artist profile existence.
+     * @param hasProducer Optional boolean to filter by producer profile existence.
+     * @param pageable    Pagination information.
+     * @return A paginated list of UserSummaryDto matching the criteria.
+     */
+    ResponseEntity<Page<UserSummaryDto>> searchUsers(
+            Jwt jwt,
+            @RequestParam(required = false) List<UUID> genreIds,
+            @RequestParam(required = false) List<UUID> skillIds,
+            @RequestParam(required = false) Boolean hasArtist,
+            @RequestParam(required = false) Boolean hasProducer,
+            @RequestParam(required = false) ExperienceLevel artistExperienceLevel,
+            @RequestParam(required = false) Boolean artistAvailability,
+            @RequestParam(required = false) ExperienceLevel producerExperienceLevel,
+            @RequestParam(required = false) Boolean producerAvailability,
+            Pageable pageable
+    );
 }

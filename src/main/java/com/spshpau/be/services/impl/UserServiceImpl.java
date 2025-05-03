@@ -1,15 +1,27 @@
 package com.spshpau.be.services.impl;
 
+import com.spshpau.be.dto.profiledto.ArtistProfileSummaryDto;
+import com.spshpau.be.dto.profiledto.ProducerProfileSummaryDto;
+import com.spshpau.be.dto.userdto.UserSearchCriteria;
+import com.spshpau.be.dto.userdto.UserSummaryDto;
+import com.spshpau.be.model.ArtistProfile;
+import com.spshpau.be.model.ProducerProfile;
 import com.spshpau.be.model.User;
 import com.spshpau.be.repositories.UserRepository;
+import com.spshpau.be.repositories.specifications.UserSpecification;
 import com.spshpau.be.services.UserService;
 import com.spshpau.be.services.exceptions.UserNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -102,5 +114,52 @@ public class UserServiceImpl implements UserService {
         User user = findUserOrThrow(userId);
         user.setActive(true);
         userRepository.save(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<UserSummaryDto> findActiveUsers(UUID currentUserId, UserSearchCriteria criteria, Pageable pageable) {
+        UserSpecification spec = new UserSpecification(criteria, currentUserId);
+        Page<User> userPage = userRepository.findAll(spec, pageable);
+
+        List<UserSummaryDto> dtoList = userPage.getContent().stream()
+                .map(this::mapUserToSummaryDto)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(dtoList, pageable, userPage.getTotalElements());
+    }
+
+    private UserSummaryDto mapUserToSummaryDto(User user) {
+        if (user == null) return null;
+
+        UserSummaryDto dto = new UserSummaryDto(
+                user.getId(),
+                user.getUsername(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getLocation()
+        );
+
+        // --- Populate Profile Summaries ---
+
+        // Artist Profile
+        ArtistProfile ap = user.getArtistProfile();
+        if (ap != null) {
+            ArtistProfileSummaryDto apDto = new ArtistProfileSummaryDto();
+            apDto.setAvailability(ap.isAvailability());
+            apDto.setExperienceLevel(ap.getExperienceLevel());
+            dto.setArtistProfile(apDto);
+        }
+
+        // Producer Profile
+        ProducerProfile pp = user.getProducerProfile();
+        if (pp != null) {
+            ProducerProfileSummaryDto ppDto = new ProducerProfileSummaryDto();
+            ppDto.setAvailability(pp.isAvailability());
+            ppDto.setExperienceLevel(pp.getExperienceLevel());
+            dto.setProducerProfile(ppDto);
+        }
+
+        return dto;
     }
 }

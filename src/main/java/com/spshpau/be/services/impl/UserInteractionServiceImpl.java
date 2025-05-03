@@ -113,7 +113,7 @@ public class UserInteractionServiceImpl implements UserInteractionService {
         Page<UserConnection> connectionsPage = userConnectionRepository.findAcceptedConnectionsForUser(userId, ConnectionStatus.ACCEPTED, pageable);
         List<UserSummaryDto> dtoList = connectionsPage.getContent().stream()
                 .map(conn -> conn.getRequester().getId().equals(userId) ? conn.getAddressee() : conn.getRequester())
-                .map(user -> new UserSummaryDto(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName()))
+                .map(user -> new UserSummaryDto(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName(), user.getLocation()))
                 .collect(Collectors.toList());
         return new PageImpl<>(dtoList, pageable, connectionsPage.getTotalElements());
     }
@@ -124,7 +124,7 @@ public class UserInteractionServiceImpl implements UserInteractionService {
         Page<UserConnection> requestsPage = userConnectionRepository.findByAddresseeIdAndStatus(userId, ConnectionStatus.PENDING, pageable);
         List<UserSummaryDto> dtoList = requestsPage.getContent().stream()
                 .map(UserConnection::getRequester)
-                .map(user -> new UserSummaryDto(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName()))
+                .map(user -> new UserSummaryDto(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName(), user.getLocation()))
                 .collect(Collectors.toList());
         return new PageImpl<>(dtoList, pageable, requestsPage.getTotalElements());
     }
@@ -135,7 +135,7 @@ public class UserInteractionServiceImpl implements UserInteractionService {
         Page<UserConnection> requestsPage = userConnectionRepository.findByRequesterIdAndStatus(userId, ConnectionStatus.PENDING, pageable);
         List<UserSummaryDto> dtoList = requestsPage.getContent().stream()
                 .map(UserConnection::getAddressee)
-                .map(user -> new UserSummaryDto(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName()))
+                .map(user -> new UserSummaryDto(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName(), user.getLocation()))
                 .collect(Collectors.toList());
         return new PageImpl<>(dtoList, pageable, requestsPage.getTotalElements());
     }
