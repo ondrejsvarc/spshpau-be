@@ -8,6 +8,7 @@ import com.spshpau.be.services.exceptions.UserNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -117,6 +118,32 @@ public class UserControllerImpl implements UserController {
             return ResponseEntity.ok(syncedUser);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping("/{userId}/deactivate")
+    @PreAuthorize("hasRole('client_admin')")
+    public ResponseEntity<Void> deactivateUser(@PathVariable UUID userId) {
+        try {
+            userService.deactivateUser(userId);
+            return ResponseEntity.noContent().build();
+        } catch (UserNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error deactivating user", ex);
+        }
+    }
+
+    @PutMapping("/{userId}/reactivate")
+    @PreAuthorize("hasRole('client_admin')")
+    public ResponseEntity<Void> reactivateUser(@PathVariable UUID userId) {
+        try {
+            userService.reactivateUser(userId);
+            return ResponseEntity.noContent().build();
+        } catch (UserNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error reactivating user", ex);
         }
     }
 }

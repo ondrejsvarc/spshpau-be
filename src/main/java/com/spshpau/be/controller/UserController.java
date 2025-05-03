@@ -48,4 +48,7 @@ public interface UserController {
      * @return ResponseEntity containing the synchronized User (200 OK) or an error status.
      */
     ResponseEntity<User> syncUserWithKeycloak(Jwt jwt);
+
+    ResponseEntity<Void> deactivateUser(@PathVariable UUID userId);
+    ResponseEntity<Void> reactivateUser(@PathVariable UUID userId);
 }

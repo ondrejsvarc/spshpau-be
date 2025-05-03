@@ -10,4 +10,6 @@ public interface UserService {
     void updateUserLocation(UUID userId, String location);
     Optional<User> getUserById(UUID userId);
     Optional<User> getUserByUsername(String username);
+    void deactivateUser(UUID userId);
+    void reactivateUser(UUID userId);
 }

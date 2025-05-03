@@ -1,9 +1,12 @@
 package com.spshpau.be.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -33,7 +36,21 @@ public class User {
     @Column
     private String location;
 
+    @Column(nullable = false)
+    private boolean active = true; // For admin deactivation (ban)
+
     // --- Relationships ---
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_blocks",
+            joinColumns = @JoinColumn(name = "blocker_id"),
+            inverseJoinColumns = @JoinColumn(name = "blocked_id")
+    )
+    @JsonIgnore
+    @ToString.Exclude
+    private Set<User> blockedUsers = new HashSet<>();
+
     @OneToOne(mappedBy = "user",
             cascade = CascadeType.ALL,
             fetch = FetchType.LAZY,

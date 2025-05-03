@@ -20,6 +20,11 @@ public class UserServiceImpl implements UserService {
         this.userRepository = userRepository;
     }
 
+    private User findUserOrThrow(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
+    }
+
     /**
      * Creates or updates a user in the local database based on Keycloak info.
      * This method would typically be called after successful authentication.
@@ -81,5 +86,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public Optional<User> getUserByUsername(String username) {
         return userRepository.findByUsername(username);
+    }
+
+    @Override
+    @Transactional
+    public void deactivateUser(UUID userId) {
+        User user = findUserOrThrow(userId);
+        user.setActive(false);
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void reactivateUser(UUID userId) {
+        User user = findUserOrThrow(userId);
+        user.setActive(true);
+        userRepository.save(user);
     }
 }
