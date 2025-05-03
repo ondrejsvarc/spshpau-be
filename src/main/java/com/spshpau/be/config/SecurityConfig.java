@@ -1,5 +1,6 @@
-package com.spshpau.be;
+package com.spshpau.be.config;
 
+import com.spshpau.be.JwtAuthConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

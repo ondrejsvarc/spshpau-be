@@ -1,5 +1,6 @@
 package com.spshpau.be.services.impl;
 
+import com.spshpau.be.config.CacheConfig;
 import com.spshpau.be.dto.profiledto.ArtistProfileSummaryDto;
 import com.spshpau.be.dto.profiledto.ProducerProfileSummaryDto;
 import com.spshpau.be.dto.userdto.UserSearchCriteria;
@@ -16,6 +17,7 @@ import com.spshpau.be.services.exceptions.UserNotFoundException;
 import com.spshpau.be.services.wrappers.MatchedUser;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -168,6 +170,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CacheConfig.USER_MATCHES_CACHE, key = "#currentUserId.toString() + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()")
     public Page<UserSummaryDto> findMatches(UUID currentUserId, Pageable pageable) {
 
         // 1. Get current user and their relevant profile/genres/skills

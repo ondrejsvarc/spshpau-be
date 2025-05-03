@@ -35,7 +35,7 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
      */
     @Query("SELECT bu.id FROM User u JOIN u.blockedUsers bu WHERE u.id = :userId")
     Set<UUID> findBlockedUserIdsByBlockerId(@Param("userId") UUID userId);
-    
+
     /**
      * Finds the IDs of users who have blocked the specified user.
      * @param userId The UUID of the user who might be blocked.
