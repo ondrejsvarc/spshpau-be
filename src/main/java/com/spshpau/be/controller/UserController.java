@@ -80,4 +80,12 @@ public interface UserController {
             @RequestParam(required = false) Boolean producerAvailability,
             Pageable pageable
     );
+
+    /**
+     * Finds potential collaborators for the current user based on matching genres and availability.
+     * @param jwt The JWT token representing the authenticated principal.
+     * @param pageable Pagination information.
+     * @return A paginated list of matched users (UserSummaryDto), ranked by relevance.
+     */
+    ResponseEntity<Page<UserSummaryDto>> findMatches(Jwt jwt, Pageable pageable);
 }

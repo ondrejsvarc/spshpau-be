@@ -166,7 +166,7 @@ public class UserControllerImpl implements UserController {
             @RequestParam(required = false) Boolean artistAvailability,
             @RequestParam(required = false) ExperienceLevel producerExperienceLevel,
             @RequestParam(required = false) Boolean producerAvailability,
-            @PageableDefault(size = 20, sort = "username") Pageable pageable) {
+            @PageableDefault(size = 10, sort = "username") Pageable pageable) {
 
         UUID currentUserId = getUserIdFromJwt(jwt);
 
@@ -185,6 +185,24 @@ public class UserControllerImpl implements UserController {
             return ResponseEntity.ok(results);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error searching users", ex);
+        }
+    }
+
+    @Override
+    @GetMapping("/matches")
+    public ResponseEntity<Page<UserSummaryDto>> findMatches(
+            @AuthenticationPrincipal Jwt jwt,
+            @PageableDefault(size = 10) Pageable pageable) {
+
+        UUID currentUserId = getUserIdFromJwt(jwt);
+
+        try {
+            Page<UserSummaryDto> results = userService.findMatches(currentUserId, pageable);
+            return ResponseEntity.ok(results);
+        } catch (UserNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error finding matches", ex);
         }
     }
 }

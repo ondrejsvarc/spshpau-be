@@ -17,4 +17,14 @@ public interface UserService {
     void deactivateUser(UUID userId);
     void reactivateUser(UUID userId);
     Page<UserSummaryDto> findActiveUsers(UUID currentUserId, UserSearchCriteria criteria, Pageable pageable);
+
+    /**
+     * Finds matching users based on profile type, genre overlap, and availability.
+     * Excludes self, inactive users, and blocked users. Ranks results.
+     *
+     * @param currentUserId The UUID of the user initiating the search.
+     * @param pageable Pagination information.
+     * @return A paginated list of matched users as UserSummaryDto.
+     */
+    Page<UserSummaryDto> findMatches(UUID currentUserId, Pageable pageable);
 }
