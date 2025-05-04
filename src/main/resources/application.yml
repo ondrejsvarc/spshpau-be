@@ -1,30 +1,5 @@
 spring:
-  profiles:
-    active: dev
-  datasource:
-    url: jdbc:postgresql://192.168.1.112:5432/spshpau-db
-    username: spshpau
-    password: admin
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update # validate for production, create for early development, update for development
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://192.168.1.112:8080/realms/SPSHPAU
-          jwk-set-uri: ${spring.security.oauth2.resourceserver.jwt.issuer-uri}/protocol/openid-connect/certs
-server:
-  port: 8081
-
-jwt:
-  auth:
-    converter:
-      resource-id: spshpau-rest-api
-      principle-attribute: preferred_username
+  application:
+    name: userservice
+  config:
+    import: optional:configserver:http://localhost:8888
