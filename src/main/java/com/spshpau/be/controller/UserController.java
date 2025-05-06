@@ -28,12 +28,19 @@ public interface UserController {
 
     /**
      * Retrieves a user by their username.
-     * Note: Using RequestParam here, could also use PathVariable like /username/{username}.
      *
      * @param username The username to search for.
      * @return ResponseEntity containing the User if found (200 OK), or 404 Not Found.
      */
-    ResponseEntity<User> getUserByUsername(@RequestParam String username);
+    ResponseEntity<User> getUserByUsername(String username);
+
+    /**
+     * Retrieves a user by their id.
+     *
+     * @param userId The id to search for.
+     * @return ResponseEntity containing the UserSummaryDto if found (200 OK), or 404 Not Found.
+     */
+    ResponseEntity<UserSummaryDto> getUserById(UUID userId);
 
     /**
      * Updates the location for the currently authenticated user.

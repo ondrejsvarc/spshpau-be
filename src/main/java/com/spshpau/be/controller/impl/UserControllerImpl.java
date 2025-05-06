@@ -65,11 +65,30 @@ public class UserControllerImpl implements UserController {
     }
 
     @Override
-    @GetMapping("/search")
-    public ResponseEntity<User> getUserByUsername(@RequestParam String username) {
+    @GetMapping("/search/username/{username}")
+    public ResponseEntity<User> getUserByUsername(@PathVariable String username) {
         return userService.getUserByUsername(username)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Override
+    @GetMapping("/search/id/{userId}")
+    public ResponseEntity<UserSummaryDto> getUserById(@PathVariable UUID userId) {
+        User user = userService.getUserById(userId).orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        UserSummaryDto dto = new UserSummaryDto();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setLocation(user.getLocation());
+
+        return ResponseEntity.ok(dto);
     }
 
     @Override
