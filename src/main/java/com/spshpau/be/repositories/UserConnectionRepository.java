@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +39,10 @@ public interface UserConnectionRepository extends JpaRepository<UserConnection, 
     // Find accepted connections for a user (where they are either requester or addressee)
     @Query("SELECT uc FROM UserConnection uc WHERE (uc.requester.id = :userId OR uc.addressee.id = :userId) AND uc.status = :status")
     Page<UserConnection> findAcceptedConnectionsForUser(@Param("userId") UUID userId, @Param("status") ConnectionStatus status, Pageable pageable);
+
+    // Find all accepted connections for a user (where they are either requester or addressee) without pagination
+    @Query("SELECT uc FROM UserConnection uc WHERE (uc.requester.id = :userId OR uc.addressee.id = :userId) AND uc.status = :status")
+    List<UserConnection> findAllAcceptedConnectionsForUser(@Param("userId") UUID userId, @Param("status") ConnectionStatus status);
 
     // Delete connection between two users
     void deleteByRequesterIdAndAddresseeId(UUID requesterId, UUID addresseeId);

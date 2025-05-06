@@ -7,6 +7,7 @@ import com.spshpau.be.services.enums.InteractionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface UserInteractionService {
@@ -18,6 +19,7 @@ public interface UserInteractionService {
     void removeConnection(UUID userId1, UUID userId2);
 
     Page<UserSummaryDto> getConnectionsDto(UUID userId, Pageable pageable);
+    List<UserSummaryDto> getAllConnectionsDto(UUID userId);
     Page<UserSummaryDto> getPendingIncomingRequestsDto(UUID userId, Pageable pageable);
     Page<UserSummaryDto> getPendingOutgoingRequestsDto(UUID userId, Pageable pageable);
 

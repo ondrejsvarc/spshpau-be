@@ -120,6 +120,17 @@ public class UserInteractionServiceImpl implements UserInteractionService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<UserSummaryDto> getAllConnectionsDto(UUID userId) {
+        List<UserConnection> connections = userConnectionRepository.findAllAcceptedConnectionsForUser(userId, ConnectionStatus.ACCEPTED);
+        List<UserSummaryDto> dtoList = connections.stream()
+                .map(conn -> conn.getRequester().getId().equals(userId) ? conn.getAddressee() : conn.getRequester())
+                .map(user -> new UserSummaryDto(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName(), user.getLocation()))
+                .toList();
+        return dtoList;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<UserSummaryDto> getPendingIncomingRequestsDto(UUID userId, Pageable pageable) {
         Page<UserConnection> requestsPage = userConnectionRepository.findByAddresseeIdAndStatus(userId, ConnectionStatus.PENDING, pageable);
         List<UserSummaryDto> dtoList = requestsPage.getContent().stream()

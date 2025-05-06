@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
 
 
+import java.util.List;
 import java.util.UUID;
 
 public interface UserInteractionController {
@@ -20,6 +21,7 @@ public interface UserInteractionController {
     ResponseEntity<Void> rejectRequest(@PathVariable UUID requesterId, Jwt jwt);
     ResponseEntity<Void> removeConnection(@PathVariable UUID otherUserId, Jwt jwt);
     ResponseEntity<Page<UserSummaryDto>> getMyConnections(Pageable pageable, Jwt jwt);
+    ResponseEntity<List<UserSummaryDto>> getAllMyConnections(Jwt jwt);
     ResponseEntity<Page<UserSummaryDto>> getMyPendingIncoming(Pageable pageable, Jwt jwt);
     ResponseEntity<Page<UserSummaryDto>> getMyPendingOutgoing(Pageable pageable, Jwt jwt);
 

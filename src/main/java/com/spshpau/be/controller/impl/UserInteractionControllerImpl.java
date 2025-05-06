@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -106,6 +107,13 @@ public class UserInteractionControllerImpl implements UserInteractionController 
     public ResponseEntity<Page<UserSummaryDto>> getMyConnections(@PageableDefault(size=20) Pageable pageable, @AuthenticationPrincipal Jwt jwt) {
         UUID userId = getUserIdFromJwt(jwt);
         return ResponseEntity.ok(userInteractionService.getConnectionsDto(userId, pageable));
+    }
+
+    @Override
+    @GetMapping("/connections/all")
+    public ResponseEntity<List<UserSummaryDto>> getAllMyConnections(@AuthenticationPrincipal Jwt jwt) {
+        UUID userId = getUserIdFromJwt(jwt);
+        return ResponseEntity.ok(userInteractionService.getAllConnectionsDto(userId));
     }
 
     @Override
