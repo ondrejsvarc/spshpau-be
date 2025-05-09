@@ -177,6 +177,7 @@ public class UserControllerImpl implements UserController {
     @GetMapping("/search/filter")
     public ResponseEntity<Page<UserSummaryDto>> searchUsers(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String searchTerm,
             @RequestParam(required = false) List<UUID> genreIds,
             @RequestParam(required = false) List<UUID> skillIds,
             @RequestParam(required = false) Boolean hasArtist,
@@ -190,6 +191,7 @@ public class UserControllerImpl implements UserController {
         UUID currentUserId = getUserIdFromJwt(jwt);
 
         UserSearchCriteria criteria = new UserSearchCriteria();
+        criteria.setSearchTerm(searchTerm);
         criteria.setGenreIds(genreIds);
         criteria.setSkillIds(skillIds);
         criteria.setHasArtistProfile(hasArtist);

@@ -6,6 +6,7 @@ import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 
 import java.util.ArrayList;
@@ -27,6 +28,15 @@ public class UserSpecification implements Specification<User> {
         predicates.add(cb.notEqual(root.get("id"), currentUserId));
 
         // Optional Filters:
+
+        // --- General Search Term Filter ---
+        if (StringUtils.hasText(criteria.getSearchTerm())) {
+            String likePattern = "%" + criteria.getSearchTerm().toLowerCase() + "%";
+            Predicate usernameMatch = cb.like(cb.lower(root.get("username")), likePattern);
+            Predicate firstNameMatch = cb.like(cb.lower(root.get("firstName")), likePattern);
+            Predicate lastNameMatch = cb.like(cb.lower(root.get("lastName")), likePattern);
+            predicates.add(cb.or(usernameMatch, firstNameMatch, lastNameMatch));
+        }
 
         // --- Profile Existence ---
         handleProfileExistenceFilter(root, cb, predicates, criteria.getHasArtistProfile(), "artistProfile");

@@ -21,4 +21,6 @@ public class UserSearchCriteria {
     private ExperienceLevel producerExperienceLevel; // Filter by producer experience
 
     private Boolean producerAvailability; // Filter by producer availability
+
+    private String searchTerm; // General text search
 }

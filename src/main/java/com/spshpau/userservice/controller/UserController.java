@@ -68,6 +68,7 @@ public interface UserController {
      * Searches/filters active users based on provided criteria, excluding the caller.
      *
      * @param jwt         The JWT token representing the authenticated principal.
+     * @param searchTerm  Optional String to try to match with username, firstName and lastName.
      * @param genreIds    Optional list of Genre UUIDs to filter by.
      * @param skillIds    Optional list of Skill UUIDs to filter by.
      * @param hasArtist   Optional boolean to filter by artist profile existence.
@@ -77,6 +78,7 @@ public interface UserController {
      */
     ResponseEntity<Page<UserSummaryDto>> searchUsers(
             Jwt jwt,
+            @RequestParam(required = false) String searchTerm,
             @RequestParam(required = false) List<UUID> genreIds,
             @RequestParam(required = false) List<UUID> skillIds,
             @RequestParam(required = false) Boolean hasArtist,
