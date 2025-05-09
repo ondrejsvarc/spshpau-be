@@ -1,6 +1,7 @@
 package com.spshpau.userservice.controller;
 
 import com.spshpau.userservice.dto.userdto.LocationUpdateRequest;
+import com.spshpau.userservice.dto.userdto.UserDetailDto;
 import com.spshpau.userservice.dto.userdto.UserSummaryDto;
 import com.spshpau.userservice.model.User;
 import com.spshpau.userservice.model.enums.ExperienceLevel;
@@ -22,17 +23,17 @@ public interface UserController {
      * Retrieves the details of the currently authenticated user.
      *
      * @param jwt The JWT token representing the authenticated principal.
-     * @return ResponseEntity containing the User if found (200 OK), or 401/404 if auth fails or user not synced.
+     * @return ResponseEntity containing the UserDetailDto if found (200 OK), or 401/404 if auth fails or user not synced.
      */
-    ResponseEntity<User> getCurrentUser(Jwt jwt);
+    ResponseEntity<UserDetailDto> getCurrentUser(Jwt jwt);
 
     /**
      * Retrieves a user by their username.
      *
      * @param username The username to search for.
-     * @return ResponseEntity containing the User if found (200 OK), or 404 Not Found.
+     * @return ResponseEntity containing the UserDetailDto if found (200 OK), or 404 Not Found.
      */
-    ResponseEntity<User> getUserByUsername(String username);
+    ResponseEntity<UserDetailDto> getUserByUsername(@RequestParam String username);
 
     /**
      * Retrieves a user by their id.
@@ -47,9 +48,9 @@ public interface UserController {
      *
      * @param jwt                 The JWT token representing the authenticated principal.
      * @param locationUpdateRequest DTO containing the new location.
-     * @return ResponseEntity containing the updated User (200 OK), or error status.
+     * @return ResponseEntity containing the updated UserDetailDto (200 OK), or error status.
      */
-    ResponseEntity<String> updateCurrentUserLocation(Jwt jwt, @RequestBody LocationUpdateRequest locationUpdateRequest);
+    ResponseEntity<UserDetailDto> updateCurrentUserLocation(Jwt jwt, @RequestBody LocationUpdateRequest locationUpdateRequest);
 
     /**
      * Synchronizes the currently authenticated user's data from Keycloak
@@ -57,9 +58,9 @@ public interface UserController {
      * The implementation will need to extract user details from the security context.
      *
      * @param jwt Represents the currently authenticated user (e.g., from Spring Security).
-     * @return ResponseEntity containing the synchronized User (200 OK) or an error status.
+     * @return ResponseEntity containing the synchronized UserDetailDto (200 OK) or an error status.
      */
-    ResponseEntity<User> syncUserWithKeycloak(Jwt jwt);
+    ResponseEntity<UserDetailDto> syncUserWithKeycloak(Jwt jwt);
 
     ResponseEntity<Void> deactivateUser(@PathVariable UUID userId);
     ResponseEntity<Void> reactivateUser(@PathVariable UUID userId);

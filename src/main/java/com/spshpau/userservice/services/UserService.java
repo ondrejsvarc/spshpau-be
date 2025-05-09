@@ -1,5 +1,6 @@
 package com.spshpau.userservice.services;
 
+import com.spshpau.userservice.dto.userdto.UserDetailDto;
 import com.spshpau.userservice.dto.userdto.UserSearchCriteria;
 import com.spshpau.userservice.dto.userdto.UserSummaryDto;
 import com.spshpau.userservice.model.User;
@@ -10,10 +11,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserService {
-    User syncUserFromKeycloak(UUID keycloakId, String username, String email, String firstName, String lastName);
-    void updateUserLocation(UUID userId, String location);
-    Optional<User> getUserById(UUID userId);
-    Optional<User> getUserByUsername(String username);
+    UserDetailDto syncUserFromKeycloak(UUID keycloakId, String username, String email, String firstName, String lastName);
+    UserDetailDto updateUserLocation(UUID userId, String location);
+    Optional<UserDetailDto> getUserDetailById(UUID userId);
+    Optional<UserDetailDto> getUserDetailByUsername(String username);
+    Optional<User> getUserEntityById(UUID userId);
     void deactivateUser(UUID userId);
     void reactivateUser(UUID userId);
     Page<UserSummaryDto> findActiveUsers(UUID currentUserId, UserSearchCriteria criteria, Pageable pageable);

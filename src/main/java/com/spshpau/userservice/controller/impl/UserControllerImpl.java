@@ -2,6 +2,7 @@ package com.spshpau.userservice.controller.impl;
 
 import com.spshpau.userservice.controller.UserController;
 import com.spshpau.userservice.dto.userdto.LocationUpdateRequest;
+import com.spshpau.userservice.dto.userdto.UserDetailDto;
 import com.spshpau.userservice.dto.userdto.UserSearchCriteria;
 import com.spshpau.userservice.dto.userdto.UserSummaryDto;
 import com.spshpau.userservice.model.User;
@@ -52,9 +53,9 @@ public class UserControllerImpl implements UserController {
 
     @Override
     @GetMapping("/me")
-    public ResponseEntity<User> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<UserDetailDto> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
         UUID userUuid = getUserIdFromJwt(jwt);
-        return userService.getUserById(userUuid)
+        return userService.getUserDetailById(userUuid)
                 .map(user -> {
                     return ResponseEntity.ok(user);
                 })
@@ -66,8 +67,8 @@ public class UserControllerImpl implements UserController {
 
     @Override
     @GetMapping("/search/username/{username}")
-    public ResponseEntity<User> getUserByUsername(@PathVariable String username) {
-        return userService.getUserByUsername(username)
+    public ResponseEntity<UserDetailDto> getUserByUsername(@PathVariable String username) {
+        return userService.getUserDetailByUsername(username)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -75,7 +76,7 @@ public class UserControllerImpl implements UserController {
     @Override
     @GetMapping("/search/id/{userId}")
     public ResponseEntity<UserSummaryDto> getUserById(@PathVariable UUID userId) {
-        User user = userService.getUserById(userId).orElse(null);
+        User user = userService.getUserEntityById(userId).orElse(null);
 
         if (user == null) {
             return ResponseEntity.notFound().build();
@@ -93,7 +94,7 @@ public class UserControllerImpl implements UserController {
 
     @Override
     @PutMapping("/me/location")
-    public ResponseEntity<String> updateCurrentUserLocation(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<UserDetailDto> updateCurrentUserLocation(@AuthenticationPrincipal Jwt jwt,
                                                           @RequestBody LocationUpdateRequest locationUpdateRequest) {
         UUID userUuid = getUserIdFromJwt(jwt);
         String newLocation = locationUpdateRequest.getLocation();
@@ -104,8 +105,8 @@ public class UserControllerImpl implements UserController {
         }
 
         try {
-            userService.updateUserLocation(userUuid, newLocation);
-            return ResponseEntity.ok("Successfully updatet location of user " + userUuid + " to " + newLocation + ".");
+            UserDetailDto user = userService.updateUserLocation(userUuid, newLocation);
+            return ResponseEntity.ok(user);
         } catch (UserNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found", ex);
         }
@@ -113,7 +114,7 @@ public class UserControllerImpl implements UserController {
 
     @Override
     @PutMapping("/me/sync")
-    public ResponseEntity<User> syncUserWithKeycloak(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<UserDetailDto> syncUserWithKeycloak(@AuthenticationPrincipal Jwt jwt) {
         if (jwt == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -140,7 +141,7 @@ public class UserControllerImpl implements UserController {
         }
 
         try {
-            User syncedUser = userService.syncUserFromKeycloak(keycloakUuid, username, email, firstName, lastName);
+            UserDetailDto syncedUser = userService.syncUserFromKeycloak(keycloakUuid, username, email, firstName, lastName);
             return ResponseEntity.ok(syncedUser);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

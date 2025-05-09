@@ -1,8 +1,8 @@
 package com.spshpau.userservice.services.impl;
 
 import com.spshpau.userservice.config.CacheConfig;
-import com.spshpau.userservice.dto.profiledto.ArtistProfileSummaryDto;
-import com.spshpau.userservice.dto.profiledto.ProducerProfileSummaryDto;
+import com.spshpau.userservice.dto.profiledto.*;
+import com.spshpau.userservice.dto.userdto.UserDetailDto;
 import com.spshpau.userservice.dto.userdto.UserSearchCriteria;
 import com.spshpau.userservice.dto.userdto.UserSummaryDto;
 import com.spshpau.userservice.model.ArtistProfile;
@@ -17,6 +17,7 @@ import com.spshpau.userservice.services.exceptions.UserNotFoundException;
 import com.spshpau.userservice.services.wrappers.MatchedUser;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -30,6 +31,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
 
@@ -38,101 +40,48 @@ public class UserServiceImpl implements UserService {
         this.userRepository = userRepository;
     }
 
-    private User findUserOrThrow(UUID userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
-    }
+    private UserDetailDto mapUserToDetailDto(User user) {
+        if (user == null) {
+            return null;
+        }
+        UserDetailDto dto = new UserDetailDto();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setLocation(user.getLocation());
+        dto.setActive(user.isActive());
 
-    /**
-     * Creates or updates a user in the local database based on Keycloak info.
-     * This method would typically be called after successful authentication.
-     *
-     * @param keycloakId      The user's ID from Keycloak (e.g., token.getSubject())
-     * @param username        Username from Keycloak (e.g., token.getPreferredUsername())
-     * @param email           Email from Keycloak (e.g., token.getEmail())
-     * @param firstName       First name from Keycloak (e.g., token.getGivenName())
-     * @param lastName        Last name from Keycloak (e.g., token.getFamilyName())
-     * @return The created or updated User entity.
-     */
-    @Transactional
-    @Override
-    public User syncUserFromKeycloak(UUID keycloakId, String username, String email, String firstName, String lastName) {
-        // Try to find the user by their Keycloak ID
-        Optional<User> existingUserOpt = userRepository.findById(keycloakId);
-
-        User user;
-        if (existingUserOpt.isPresent()) {
-            // User exists, update their details (except ID)
-            user = existingUserOpt.get();
-            user.setUsername(username);
-            user.setEmail(email);
-            user.setFirstName(firstName);
-            user.setLastName(lastName);
-            System.out.println("Updating existing user: " + keycloakId);
-        } else {
-            // User does not exist, create a new one
-            user = new User();
-            user.setId(keycloakId);
-            user.setUsername(username);
-            user.setEmail(email);
-            user.setFirstName(firstName);
-            user.setLastName(lastName);
-            user.setLocation(null);
-            System.out.println("Creating new user: " + keycloakId);
+        if (user.getArtistProfile() != null) {
+            ArtistProfile apEntity = user.getArtistProfile();
+            ArtistProfileDetailDto apDto = new ArtistProfileDetailDto();
+            apDto.setId(apEntity.getId());
+            apDto.setAvailability(apEntity.isAvailability());
+            apDto.setBio(apEntity.getBio());
+            apDto.setExperienceLevel(apEntity.getExperienceLevel());
+            apDto.setGenres(apEntity.getGenres().stream()
+                    .map(g -> new GenreSummaryDto(g.getId(), g.getName()))
+                    .collect(Collectors.toSet()));
+            apDto.setSkills(apEntity.getSkills().stream()
+                    .map(s -> new SkillSummaryDto(s.getId(), s.getName()))
+                    .collect(Collectors.toSet()));
+            dto.setArtistProfile(apDto);
         }
 
-        return userRepository.save(user);
-    }
-
-    @Transactional
-    @Override
-    public void updateUserLocation(UUID userId, String location) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
-        user.setLocation(location);
-        userRepository.save(user);
-        System.out.println("Updated location for user " + userId + " to " + location);
-    }
-
-    @Transactional(readOnly = true)
-    @Override
-    public Optional<User> getUserById(UUID userId) {
-        return userRepository.findById(userId);
-    }
-
-    @Transactional(readOnly = true)
-    @Override
-    public Optional<User> getUserByUsername(String username) {
-        return userRepository.findByUsername(username);
-    }
-
-    @Override
-    @Transactional
-    public void deactivateUser(UUID userId) {
-        User user = findUserOrThrow(userId);
-        user.setActive(false);
-        userRepository.save(user);
-    }
-
-    @Override
-    @Transactional
-    public void reactivateUser(UUID userId) {
-        User user = findUserOrThrow(userId);
-        user.setActive(true);
-        userRepository.save(user);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<UserSummaryDto> findActiveUsers(UUID currentUserId, UserSearchCriteria criteria, Pageable pageable) {
-        UserSpecification spec = new UserSpecification(criteria, currentUserId);
-        Page<User> userPage = userRepository.findAll(spec, pageable);
-
-        List<UserSummaryDto> dtoList = userPage.getContent().stream()
-                .map(this::mapUserToSummaryDto)
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(dtoList, pageable, userPage.getTotalElements());
+        if (user.getProducerProfile() != null) {
+            ProducerProfile ppEntity = user.getProducerProfile();
+            ProducerProfileDetailDto ppDto = new ProducerProfileDetailDto();
+            ppDto.setId(ppEntity.getId());
+            ppDto.setAvailability(ppEntity.isAvailability());
+            ppDto.setBio(ppEntity.getBio());
+            ppDto.setExperienceLevel(ppEntity.getExperienceLevel());
+            ppDto.setGenres(ppEntity.getGenres().stream()
+                    .map(g -> new GenreSummaryDto(g.getId(), g.getName()))
+                    .collect(Collectors.toSet()));
+            dto.setProducerProfile(ppDto);
+        }
+        return dto;
     }
 
     private UserSummaryDto mapUserToSummaryDto(User user) {
@@ -169,10 +118,131 @@ public class UserServiceImpl implements UserService {
         return dto;
     }
 
+    private User findUserOrThrow(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
+    }
+
+    /**
+     * Creates or updates a user in the local database based on Keycloak info.
+     * This method would typically be called after successful authentication.
+     *
+     * @param keycloakId      The user's ID from Keycloak (e.g., token.getSubject())
+     * @param username        Username from Keycloak (e.g., token.getPreferredUsername())
+     * @param email           Email from Keycloak (e.g., token.getEmail())
+     * @param firstName       First name from Keycloak (e.g., token.getGivenName())
+     * @param lastName        Last name from Keycloak (e.g., token.getFamilyName())
+     * @return The created or updated User entity.
+     */
+    @Override
+    @Transactional
+    public UserDetailDto syncUserFromKeycloak(UUID keycloakId, String username, String email, String firstName, String lastName) {
+        User user = userRepository.findById(keycloakId)
+                .map(existingUser -> {
+                    existingUser.setUsername(username);
+                    existingUser.setEmail(email);
+                    existingUser.setFirstName(firstName);
+                    existingUser.setLastName(lastName);
+                    existingUser.setActive(true); // Ensure active on sync
+                    log.info("Updating existing user from Keycloak: {}", keycloakId);
+                    return existingUser;
+                })
+                .orElseGet(() -> {
+                    User newUser = new User();
+                    newUser.setId(keycloakId);
+                    newUser.setUsername(username);
+                    newUser.setEmail(email);
+                    newUser.setFirstName(firstName);
+                    newUser.setLastName(lastName);
+                    newUser.setActive(true);
+                    log.info("Creating new user from Keycloak: {}", keycloakId);
+                    return newUser;
+                });
+        User savedUser = userRepository.save(user);
+        if (savedUser.getArtistProfile() != null) savedUser.getArtistProfile().getGenres().size();
+        if (savedUser.getProducerProfile() != null) savedUser.getProducerProfile().getGenres().size();
+        return mapUserToDetailDto(savedUser);
+    }
+
+    @Override
+    @Transactional
+    public UserDetailDto updateUserLocation(UUID userId, String location) {
+        User user = findUserOrThrow(userId);
+        user.setLocation(location);
+        User updatedUser = userRepository.save(user);
+        return mapUserToDetailDto(updatedUser);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UserDetailDto> getUserDetailById(UUID userId) {
+        return userRepository.findById(userId).map(user -> {
+            if (user.getArtistProfile() != null) {
+                user.getArtistProfile().getGenres().size();
+                user.getArtistProfile().getSkills().size();
+            }
+            if (user.getProducerProfile() != null) {
+                user.getProducerProfile().getGenres().size();
+            }
+            return mapUserToDetailDto(user);
+        });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UserDetailDto> getUserDetailByUsername(String username) {
+        return userRepository.findByUsername(username).map(user -> {
+            if (user.getArtistProfile() != null) {
+                user.getArtistProfile().getGenres().size();
+                user.getArtistProfile().getSkills().size();
+            }
+            if (user.getProducerProfile() != null) {
+                user.getProducerProfile().getGenres().size();
+            }
+            return mapUserToDetailDto(user);
+        });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<User> getUserEntityById(UUID userId) {
+        return userRepository.findById(userId);
+    }
+
+    @Override
+    @Transactional
+    public void deactivateUser(UUID userId) {
+        User user = findUserOrThrow(userId);
+        user.setActive(false);
+        userRepository.save(user);
+        log.info("Deactivated user with ID: {}", userId);
+    }
+
+    @Override
+    @Transactional
+    public void reactivateUser(UUID userId) {
+        User user = findUserOrThrow(userId);
+        user.setActive(true);
+        userRepository.save(user);
+        log.info("Reactivated user with ID: {}", userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<UserSummaryDto> findActiveUsers(UUID currentUserId, UserSearchCriteria criteria, Pageable pageable) {
+        UserSpecification spec = new UserSpecification(criteria, currentUserId);
+        Page<User> userPage = userRepository.findAll(spec, pageable);
+        List<UserSummaryDto> dtoList = userPage.getContent().stream()
+                .map(this::mapUserToSummaryDto)
+                .collect(Collectors.toList());
+        return new PageImpl<>(dtoList, pageable, userPage.getTotalElements());
+    }
+
     @Override
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = CacheConfig.USER_MATCHES_CACHE, key = "#currentUserId.toString() + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()")
     public Page<UserSummaryDto> findMatches(UUID currentUserId, Pageable pageable) {
+        log.info("--- Executing findMatches logic for user {} ---", currentUserId);
 
         // 1. Get current user and EAGERLY load their profile/genres
         User currentUser = userRepository.findById(currentUserId)
@@ -193,6 +263,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (currentUserArtistProfile == null && currentUserProducerProfile == null) {
+            log.warn("User {} has no profile, cannot find matches.", currentUserId);
             return Page.empty(pageable);
         }
 
@@ -222,6 +293,7 @@ public class UserServiceImpl implements UserService {
 
         // 4. Fetch ALL potential candidates
         List<User> candidates = userRepository.findAll(spec);
+        log.info("Found {} total potential candidates for user {}", candidates.size(), currentUserId);
 
         // 5. Calculate Match Scores & Wrap Users
         List<MatchedUser> scoredMatches = candidates.stream()
@@ -278,6 +350,7 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        log.trace("Calculated score for candidate {}: {}", candidate.getUsername(), score);
         return score;
     }
 
