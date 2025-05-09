@@ -2,6 +2,7 @@ package com.spshpau.userservice.controller.impl;
 
 import com.spshpau.userservice.controller.SkillController;
 import com.spshpau.userservice.dto.profiledto.SkillDto;
+import com.spshpau.userservice.dto.profiledto.SkillSummaryDto;
 import com.spshpau.userservice.model.Skill;
 import com.spshpau.userservice.services.SkillService;
 import com.spshpau.userservice.services.exceptions.DuplicateException;
@@ -31,9 +32,9 @@ public class SkillControllerImpl implements SkillController {
     @Override
     @PostMapping("/add")
     @PreAuthorize("hasRole('client_admin')")
-    public ResponseEntity<Skill> addSkill(@Valid @RequestBody SkillDto skillDto) {
+    public ResponseEntity<SkillSummaryDto> addSkill(@Valid @RequestBody SkillDto skillDto) {
         try {
-            Skill createdSkill = skillService.createSkill(skillDto);
+            SkillSummaryDto createdSkill = skillService.createSkill(skillDto);
             URI location = ServletUriComponentsBuilder
                     .fromCurrentRequest()
                     .path("/{id}")
@@ -63,10 +64,10 @@ public class SkillControllerImpl implements SkillController {
 
     @Override
     @GetMapping
-    public ResponseEntity<Page<Skill>> getAllSkills(
+    public ResponseEntity<Page<SkillSummaryDto>> getAllSkills(
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
         try {
-            Page<Skill> skillPage = skillService.getAllSkills(pageable);
+            Page<SkillSummaryDto> skillPage = skillService.getAllSkills(pageable);
             return ResponseEntity.ok(skillPage);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error retrieving skills", ex);

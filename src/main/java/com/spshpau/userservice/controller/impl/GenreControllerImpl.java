@@ -2,6 +2,7 @@ package com.spshpau.userservice.controller.impl;
 
 import com.spshpau.userservice.controller.GenreController;
 import com.spshpau.userservice.dto.profiledto.GenreDto;
+import com.spshpau.userservice.dto.profiledto.GenreSummaryDto;
 import com.spshpau.userservice.model.Genre;
 import com.spshpau.userservice.services.GenreService;
 import com.spshpau.userservice.services.exceptions.DuplicateException;
@@ -31,9 +32,9 @@ public class GenreControllerImpl implements GenreController {
     @Override
     @PostMapping("/add")
     @PreAuthorize("hasRole('client_admin')")
-    public ResponseEntity<Genre> addGenre(@Valid @RequestBody GenreDto genreDto) {
+    public ResponseEntity<GenreSummaryDto> addGenre(@Valid @RequestBody GenreDto genreDto) {
         try {
-            Genre createdGenre = genreService.createGenre(genreDto);
+            GenreSummaryDto createdGenre = genreService.createGenre(genreDto);
             URI location = ServletUriComponentsBuilder
                     .fromCurrentRequest()
                     .path("/{id}")
@@ -64,10 +65,10 @@ public class GenreControllerImpl implements GenreController {
 
     @Override
     @GetMapping
-    public ResponseEntity<Page<Genre>> getAllGenres(
+    public ResponseEntity<Page<GenreSummaryDto>> getAllGenres(
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
         try {
-            Page<Genre> genrePage = genreService.getAllGenres(pageable);
+            Page<GenreSummaryDto> genrePage = genreService.getAllGenres(pageable);
             return ResponseEntity.ok(genrePage);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error retrieving genres", ex);

@@ -1,5 +1,7 @@
 package com.spshpau.userservice.controller.impl;
 
+import com.spshpau.userservice.dto.profiledto.GenreSummaryDto;
+import com.spshpau.userservice.dto.profiledto.ProducerProfileDetailDto;
 import com.spshpau.userservice.dto.profiledto.ProfileUpdateDto;
 import com.spshpau.userservice.services.exceptions.GenreLimitExceededException;
 import com.spshpau.userservice.services.exceptions.GenreNotFoundException;
@@ -43,7 +45,7 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ProducerProfile> getMyProducerProfile(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<ProducerProfileDetailDto> getMyProducerProfile(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = getUserIdFromJwt(jwt);
         return producerProfileService.getProducerProfileByUserId(userId)
                 .map(ResponseEntity::ok)
@@ -51,11 +53,11 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
     }
 
     @PutMapping("/me/create")
-    public ResponseEntity<ProducerProfile> createOrUpdateMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<ProducerProfileDetailDto> createOrUpdateMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
                                                                            @RequestBody ProfileUpdateDto profileData) {
         UUID userId = getUserIdFromJwt(jwt);
         try {
-            ProducerProfile profile = producerProfileService.createOrUpdateProducerProfile(userId, profileData);
+            ProducerProfileDetailDto profile = producerProfileService.createOrUpdateProducerProfile(userId, profileData);
             return ResponseEntity.ok(profile);
         } catch (UserNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found, cannot create/update profile", ex);
@@ -67,11 +69,11 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
     }
 
     @PatchMapping("/me/patch")
-    public ResponseEntity<ProducerProfile> patchMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<ProducerProfileDetailDto> patchMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
                                                                   @RequestBody ProfileUpdateDto profileData) {
         UUID userId = getUserIdFromJwt(jwt);
         try {
-            ProducerProfile profile = producerProfileService.patchProducerProfile(userId, profileData);
+            ProducerProfileDetailDto profile = producerProfileService.patchProducerProfile(userId, profileData);
             return ResponseEntity.ok(profile);
         } catch (ProfileNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
@@ -81,10 +83,10 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
     }
 
     @GetMapping("/me/genres")
-    public ResponseEntity<Set<Genre>> getMyProducerProfileGenres(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<Set<GenreSummaryDto>> getMyProducerProfileGenres(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = getUserIdFromJwt(jwt);
         try {
-            Set<Genre> genres = producerProfileService.getProducerProfileGenres(userId);
+            Set<GenreSummaryDto> genres = producerProfileService.getProducerProfileGenres(userId);
             return ResponseEntity.ok(genres);
         } catch (ProfileNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
@@ -92,12 +94,12 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
     }
 
     @PostMapping("/me/genres/add/{genreId}")
-    public ResponseEntity<ProducerProfile> addGenreToMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<ProducerProfileDetailDto> addGenreToMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
                                                                        @PathVariable UUID genreId) {
         UUID userId = getUserIdFromJwt(jwt);
 
         try {
-            ProducerProfile updatedProfile = producerProfileService.addGenreToProducerProfile(userId, genreId);
+            ProducerProfileDetailDto updatedProfile = producerProfileService.addGenreToProducerProfile(userId, genreId);
             return ResponseEntity.ok(updatedProfile);
         } catch (ProfileNotFoundException | GenreNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
@@ -109,11 +111,11 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
     }
 
     @DeleteMapping("/me/genres/remove/{genreId}")
-    public ResponseEntity<ProducerProfile> removeGenreFromMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<ProducerProfileDetailDto> removeGenreFromMyProducerProfile(@AuthenticationPrincipal Jwt jwt,
                                                                             @PathVariable UUID genreId) {
         UUID userId = getUserIdFromJwt(jwt);
         try {
-            ProducerProfile updatedProfile = producerProfileService.removeGenreFromProducerProfile(userId, genreId);
+            ProducerProfileDetailDto updatedProfile = producerProfileService.removeGenreFromProducerProfile(userId, genreId);
             return ResponseEntity.ok(updatedProfile);
         } catch (ProfileNotFoundException | GenreNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
@@ -123,7 +125,7 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
     }
 
     @GetMapping("/{username}")
-    public ResponseEntity<ProducerProfile> getProducerProfileByUsername(@PathVariable String username) {
+    public ResponseEntity<ProducerProfileDetailDto> getProducerProfileByUsername(@PathVariable String username) {
         return producerProfileService.getProducerProfileByUsername(username)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> {
@@ -131,9 +133,9 @@ public class ProducerProfileControllerImpl implements ProducerProfileController 
                 });
     }
     @GetMapping("/{username}/genres")
-    public ResponseEntity<Set<Genre>> getProducerProfileGenresByUsername(@PathVariable String username) {
+    public ResponseEntity<Set<GenreSummaryDto>> getProducerProfileGenresByUsername(@PathVariable String username) {
         try {
-            Set<Genre> genres = producerProfileService.getProducerProfileGenresByUsername(username);
+            Set<GenreSummaryDto> genres = producerProfileService.getProducerProfileGenresByUsername(username);
             return ResponseEntity.ok(genres);
         } catch (UserNotFoundException | ProfileNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Producer profile or user not found for username: " + username, ex);

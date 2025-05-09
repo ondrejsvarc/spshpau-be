@@ -1,6 +1,9 @@
 package com.spshpau.userservice.controller;
 
+import com.spshpau.userservice.dto.profiledto.ArtistProfileDetailDto;
+import com.spshpau.userservice.dto.profiledto.GenreSummaryDto;
 import com.spshpau.userservice.dto.profiledto.ProfileUpdateDto;
+import com.spshpau.userservice.dto.profiledto.SkillSummaryDto;
 import com.spshpau.userservice.model.ArtistProfile;
 import com.spshpau.userservice.model.Genre;
 import com.spshpau.userservice.model.Skill;
@@ -15,38 +18,38 @@ import java.util.UUID;
 public interface ArtistProfileController {
 
     /** Get current user's Artist Profile */
-    ResponseEntity<ArtistProfile> getMyArtistProfile(Jwt jwt);
+    ResponseEntity<ArtistProfileDetailDto> getMyArtistProfile(Jwt jwt);
 
     /** Create or fully update current user's Artist Profile */
-    ResponseEntity<ArtistProfile> createOrUpdateMyArtistProfile(Jwt jwt, @RequestBody ProfileUpdateDto profileData);
+    ResponseEntity<ArtistProfileDetailDto> createOrUpdateMyArtistProfile(Jwt jwt, @RequestBody ProfileUpdateDto profileData);
 
     /** Partially update current user's Artist Profile */
-    ResponseEntity<ArtistProfile> patchMyArtistProfile(Jwt jwt, @RequestBody ProfileUpdateDto profileData);
+    ResponseEntity<ArtistProfileDetailDto> patchMyArtistProfile(Jwt jwt, @RequestBody ProfileUpdateDto profileData);
 
     /** Get genres for current user's Artist Profile */
-    ResponseEntity<Set<Genre>> getMyArtistProfileGenres(Jwt jwt);
+    ResponseEntity<Set<GenreSummaryDto>> getMyArtistProfileGenres(Jwt jwt);
 
     /** Add a genre to current user's Artist Profile */
-    ResponseEntity<ArtistProfile> addGenreToMyArtistProfile(Jwt jwt, @PathVariable UUID genreId);
+    ResponseEntity<ArtistProfileDetailDto> addGenreToMyArtistProfile(Jwt jwt, @PathVariable UUID genreId);
 
     /** Remove a genre from current user's Artist Profile */
-    ResponseEntity<ArtistProfile> removeGenreFromMyArtistProfile(Jwt jwt, @PathVariable UUID genreId);
+    ResponseEntity<ArtistProfileDetailDto> removeGenreFromMyArtistProfile(Jwt jwt, @PathVariable UUID genreId);
 
     /** Get skills for current user's Artist Profile */
-    ResponseEntity<Set<Skill>> getMyArtistProfileSkills(Jwt jwt);
+    ResponseEntity<Set<SkillSummaryDto>> getMyArtistProfileSkills(Jwt jwt);
 
     /** Add a skill to current user's Artist Profile */
-    ResponseEntity<ArtistProfile> addSkillToMyArtistProfile(Jwt jwt, @PathVariable UUID skillId);
+    ResponseEntity<ArtistProfileDetailDto> addSkillToMyArtistProfile(Jwt jwt, @PathVariable UUID skillId);
 
     /** Remove a skill from current user's Artist Profile */
-    ResponseEntity<ArtistProfile> removeSkillFromMyArtistProfile(Jwt jwt, @PathVariable UUID skillId);
+    ResponseEntity<ArtistProfileDetailDto> removeSkillFromMyArtistProfile(Jwt jwt, @PathVariable UUID skillId);
 
     /** Get Artist Profile by username */
-    ResponseEntity<ArtistProfile> getArtistProfileByUsername(@PathVariable String username);
+    ResponseEntity<ArtistProfileDetailDto> getArtistProfileByUsername(@PathVariable String username);
 
     /** Get genres for Artist Profile by username */
-    ResponseEntity<Set<Genre>> getArtistProfileGenresByUsername(@PathVariable String username);
+    ResponseEntity<Set<GenreSummaryDto>> getArtistProfileGenresByUsername(@PathVariable String username);
 
     /** Get skills for Artist Profile by username */
-    ResponseEntity<Set<Skill>> getArtistProfileSkillsByUsername(@PathVariable String username);
+    ResponseEntity<Set<SkillSummaryDto>> getArtistProfileSkillsByUsername(@PathVariable String username);
 }
