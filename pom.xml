@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.spshpau</groupId>
 	<artifactId>userservice</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.1-ALPHA</version>
 	<name>userservice</name>
 	<description>SPSHPAU Application User Service</description>
 	<url/>
