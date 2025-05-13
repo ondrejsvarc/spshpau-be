@@ -232,6 +232,9 @@ public class UserServiceImpl implements UserService {
     public Page<UserSummaryDto> findActiveUsers(UUID currentUserId, UserSearchCriteria criteria, Pageable pageable) {
         UserSpecification spec = new UserSpecification(criteria, currentUserId);
         Page<User> userPage = userRepository.findAll(spec, pageable);
+        if (userPage == null) {
+            return Page.empty(pageable);
+        }
         List<UserSummaryDto> dtoList = userPage.getContent().stream()
                 .map(this::mapUserToSummaryDto)
                 .collect(Collectors.toList());
@@ -263,8 +266,8 @@ public class UserServiceImpl implements UserService {
         }
 
         if (currentUserArtistProfile == null && currentUserProducerProfile == null) {
-            log.warn("User {} has no profile, cannot find matches.", currentUserId);
-            return Page.empty(pageable);
+            log.warn("User {} has no profile, cannot find matches. Returning search page.", currentUserId);
+            return findActiveUsers(currentUserId, new UserSearchCriteria(), pageable);
         }
 
         // 2. Get IDs of users to exclude

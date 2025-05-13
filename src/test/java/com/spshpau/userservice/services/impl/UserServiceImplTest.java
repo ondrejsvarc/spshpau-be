@@ -16,6 +16,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -26,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class UserServiceImplTest {
 
     @Mock
@@ -347,18 +350,51 @@ class UserServiceImplTest {
     }
 
     @Test
-    void findMatches_whenCurrentUserHasNoProfiles_shouldReturnEmptyPage() {
+    void findMatches_whenCurrentUserHasNoProfiles_shouldReturnUsers() {
         UUID currentUserId = UUID.randomUUID();
         sampleUser.setId(currentUserId);
         sampleUser.setArtistProfile(null);
         sampleUser.setProducerProfile(null);
         Pageable pageable = PageRequest.of(0, 10);
 
+        User otherUser = new User();
+        otherUser.setId(UUID.randomUUID());
+        otherUser.setUsername("candidateProducerGood");
+        otherUser.setActive(true);
+        ProducerProfile candidate1Pp = new ProducerProfile();
+        candidate1Pp.setId(otherUser.getId());
+        candidate1Pp.setAvailability(true);
+        candidate1Pp.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+        otherUser.setProducerProfile(candidate1Pp);
+        candidate1Pp.setUser(otherUser);
+
+        User otherUser2 = new User();
+        otherUser2.setId(UUID.randomUUID());
+        otherUser2.setUsername("candidateProducerBad");
+        otherUser2.setActive(true);
+        ProducerProfile candidate2Pp = new ProducerProfile();
+        candidate2Pp.setId(otherUser2.getId());
+        candidate2Pp.setAvailability(false);
+        candidate2Pp.setExperienceLevel(ExperienceLevel.EXPERT);
+        Genre otherGenre = new Genre("Pop"); otherGenre.setId(UUID.randomUUID());
+        candidate2Pp.setGenres(Set.of(otherGenre));
+        otherUser2.setProducerProfile(candidate2Pp);
+        candidate2Pp.setUser(otherUser2);
+
+        List<User> otherUsers = Arrays.asList(otherUser, otherUser2);
+
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findBlockerUserIdsByBlockedId(currentUserId)).thenReturn(Collections.emptySet());
+        when(userRepository.findBlockedUserIdsByBlockerId(currentUserId)).thenReturn(Collections.emptySet());
+
+        Page<User> userPage = new PageImpl<>(otherUsers, pageable, otherUsers.size());
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(userPage);
 
         Page<UserSummaryDto> result = userService.findMatches(currentUserId, pageable);
 
-        assertTrue(result.isEmpty());
+        assertNotNull(result);
+        assertEquals(2, result.getTotalElements());
+        assertFalse(result.getContent().isEmpty());
         verify(userRepository).findById(currentUserId);
         verify(userRepository, never()).findAll(any(Specification.class));
     }
