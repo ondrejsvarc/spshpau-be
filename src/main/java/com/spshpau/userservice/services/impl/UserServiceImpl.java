@@ -9,7 +9,9 @@ import com.spshpau.userservice.model.ArtistProfile;
 import com.spshpau.userservice.model.ProducerProfile;
 import com.spshpau.userservice.model.User;
 import com.spshpau.userservice.model.Genre;
+import com.spshpau.userservice.model.enums.ConnectionStatus;
 import com.spshpau.userservice.model.enums.ExperienceLevel;
+import com.spshpau.userservice.repositories.UserConnectionRepository;
 import com.spshpau.userservice.repositories.UserRepository;
 import com.spshpau.userservice.repositories.specifications.UserSpecification;
 import com.spshpau.userservice.services.UserService;
@@ -17,6 +19,7 @@ import com.spshpau.userservice.services.exceptions.UserNotFoundException;
 import com.spshpau.userservice.services.wrappers.MatchedUser;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -31,14 +34,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
+    private final UserConnectionRepository userConnectionRepository;
 
-    @Autowired
-    public UserServiceImpl(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     private UserDetailDto mapUserToDetailDto(User user) {
         if (user == null) {
@@ -247,70 +248,70 @@ public class UserServiceImpl implements UserService {
     public Page<UserSummaryDto> findMatches(UUID currentUserId, Pageable pageable) {
         log.info("--- Executing findMatches logic for user {} ---", currentUserId);
 
-        // 1. Get current user and EAGERLY load their profile/genres
         User currentUser = userRepository.findById(currentUserId)
                 .filter(User::isActive)
                 .orElseThrow(() -> new UserNotFoundException("Active user not found for ID: " + currentUserId));
 
-        // Load current user's profiles and associated data within the transaction
         ArtistProfile currentUserArtistProfile = currentUser.getArtistProfile();
         ProducerProfile currentUserProducerProfile = currentUser.getProducerProfile();
-        Set<UUID> currentUserArtistGenreIds = new HashSet<>();
-        Set<UUID> currentUserProducerGenreIds = new HashSet<>();
+
+        // Collect all genres and skills for the current user
+        Set<UUID> allCurrentUserGenreIds = new HashSet<>();
+        Set<UUID> currentUserArtistSkillIds = new HashSet<>();
 
         if (currentUserArtistProfile != null) {
-            currentUserArtistProfile.getGenres().forEach(g -> currentUserArtistGenreIds.add(g.getId()));
+            currentUserArtistProfile.getGenres().forEach(g -> allCurrentUserGenreIds.add(g.getId()));
+            currentUserArtistProfile.getSkills().forEach(s -> currentUserArtistSkillIds.add(s.getId()));
         }
         if (currentUserProducerProfile != null) {
-            currentUserProducerProfile.getGenres().forEach(g -> currentUserProducerGenreIds.add(g.getId()));
+            currentUserProducerProfile.getGenres().forEach(g -> allCurrentUserGenreIds.add(g.getId()));
         }
 
-        if (currentUserArtistProfile == null && currentUserProducerProfile == null) {
-            log.warn("User {} has no profile, cannot find matches. Returning search page.", currentUserId);
-            return findActiveUsers(currentUserId, new UserSearchCriteria(), pageable);
-        }
-
-        // 2. Get IDs of users to exclude
         Set<UUID> usersBlockingCurrentUser = userRepository.findBlockerUserIdsByBlockedId(currentUserId);
         Set<UUID> usersBlockedByCurrentUser = userRepository.findBlockedUserIdsByBlockerId(currentUserId);
         Set<UUID> excludedUserIds = new HashSet<>(usersBlockingCurrentUser);
         excludedUserIds.addAll(usersBlockedByCurrentUser);
         excludedUserIds.add(currentUserId);
 
-        // 3. Build Specification for initial filtering (active, not self, not blocked)
         Specification<User> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isTrue(root.get("active")));
             if (!excludedUserIds.isEmpty()) {
                 predicates.add(root.get("id").in(excludedUserIds).not());
             }
-
             if (query.getResultType() != Long.class && query.getResultType() != long.class) {
                 root.fetch("artistProfile", JoinType.LEFT).fetch("genres", JoinType.LEFT);
+                root.fetch("artistProfile", JoinType.LEFT).fetch("skills", JoinType.LEFT);
                 root.fetch("producerProfile", JoinType.LEFT).fetch("genres", JoinType.LEFT);
                 query.distinct(true);
             }
-
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        // 4. Fetch ALL potential candidates
         List<User> candidates = userRepository.findAll(spec);
         log.info("Found {} total potential candidates for user {}", candidates.size(), currentUserId);
 
-        // 5. Calculate Match Scores & Wrap Users
         List<MatchedUser> scoredMatches = candidates.stream()
-                .map(candidate -> new MatchedUser(
-                        candidate,
-                        calculateMatchScore(currentUser, currentUserArtistProfile, currentUserProducerProfile, candidate)
-                ))
+                .map(candidate -> {
+                    boolean alreadyConnected = userConnectionRepository
+                            .findConnectionBetweenUsers(currentUserId, candidate.getId())
+                            .map(conn -> conn.getStatus() == ConnectionStatus.ACCEPTED)
+                            .orElse(false);
+
+                    return new MatchedUser(
+                            candidate,
+                            calculateMatchScore(
+                                    currentUser, currentUserArtistProfile, currentUserProducerProfile,
+                                    allCurrentUserGenreIds, currentUserArtistSkillIds,
+                                    candidate, alreadyConnected
+                            )
+                    );
+                })
                 .collect(Collectors.toList());
 
-        // 6. Sort by Score (Descending), then by username
         scoredMatches.sort(Comparator.comparing(MatchedUser::getScore).reversed()
                 .thenComparing(mu -> mu.getUser().getUsername()));
 
-        // 7. Apply Manual Pagination
         int totalMatches = scoredMatches.size();
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), totalMatches);
@@ -319,37 +320,78 @@ public class UserServiceImpl implements UserService {
                 .toList()
                 : List.of();
 
-        // 8. Map to DTO
         List<UserSummaryDto> dtoList = paginatedUsers.stream()
                 .map(this::mapUserToSummaryDto)
                 .collect(Collectors.toList());
 
-        // 9. Create PageImpl
         return new PageImpl<>(dtoList, pageable, totalMatches);
     }
 
-    private double calculateMatchScore(User currentUser, ArtistProfile callerAp, ProducerProfile callerPp, User candidate) {
+    private double calculateMatchScore(
+            User currentUser, ArtistProfile callerAp, ProducerProfile callerPp,
+            Set<UUID> allCallerGenreIds, Set<UUID> callerArtistSkillIds,
+            User candidate, boolean areAlreadyConnected) {
+
         double score = 0.0;
         ArtistProfile candidateAp = candidate.getArtistProfile();
         ProducerProfile candidatePp = candidate.getProducerProfile();
 
+        // Rule 1: Already connected penalty
+        if (areAlreadyConnected) {
+            score -= 10.0;
+        }
+
+        // Rule 2: Profile genres
+        boolean matchedOppositeProfile = false;
+
         // Scenario 1: Caller is Producer, Candidate is Artist
         if (callerPp != null && candidateAp != null) {
-            score += 2.0; // Opposite profile -> + 2 points
+            matchedOppositeProfile = true;
+            score += 2.0;
             score += calculateExperienceScore(callerPp.getExperienceLevel(), candidateAp.getExperienceLevel());
-            score += calculateGenreMatchScore(callerPp.getGenres(), candidateAp.getGenres());
+            score += calculateSpecificGenreMatchScore(callerPp.getGenres(), candidateAp.getGenres());
             if (candidateAp.isAvailability()) {
-                score += 10.0; // Available -> + 10 points
+                score += 10.0;
             }
         }
 
         // Scenario 2: Caller is Artist, Candidate is Producer
         if (callerAp != null && candidatePp != null) {
-            score += 2.0; // Opposite profile -> + 2 points
+            matchedOppositeProfile = true;
+            score += 2.0;
             score += calculateExperienceScore(callerAp.getExperienceLevel(), candidatePp.getExperienceLevel());
-            score += calculateGenreMatchScore(callerAp.getGenres(), candidatePp.getGenres());
+            score += calculateSpecificGenreMatchScore(callerAp.getGenres(), candidatePp.getGenres());
             if (candidatePp.isAvailability()) {
-                score += 10.0; // Available -> + 10 points
+                score += 10.0;
+            }
+        }
+
+        // Rule 3: General matching genre or skill
+
+        // Collect all candidate genres
+        Set<UUID> allCandidateGenreIds = new HashSet<>();
+        if (candidateAp != null) {
+            candidateAp.getGenres().forEach(g -> allCandidateGenreIds.add(g.getId()));
+        }
+        if (candidatePp != null) {
+            candidatePp.getGenres().forEach(g -> allCandidateGenreIds.add(g.getId()));
+        }
+
+        // Calculate general genre intersection
+        if (!allCallerGenreIds.isEmpty() && !allCandidateGenreIds.isEmpty()) {
+            Set<UUID> commonGenres = new HashSet<>(allCallerGenreIds);
+            commonGenres.retainAll(allCandidateGenreIds);
+            score += commonGenres.size() * 1.0;
+        }
+
+        // Calculate general skill intersection
+        if (callerAp != null && candidateAp != null && !callerArtistSkillIds.isEmpty()) {
+            Set<UUID> candidateArtistSkillIds = new HashSet<>();
+            candidateAp.getSkills().forEach(s -> candidateArtistSkillIds.add(s.getId()));
+            if(!candidateArtistSkillIds.isEmpty()){
+                Set<UUID> commonSkills = new HashSet<>(callerArtistSkillIds);
+                commonSkills.retainAll(candidateArtistSkillIds);
+                score += commonSkills.size() * 1.0;
             }
         }
 
@@ -357,10 +399,17 @@ public class UserServiceImpl implements UserService {
         return score;
     }
 
-    // Helper to calculate experience score based on difference
+    private double calculateSpecificGenreMatchScore(Set<Genre> callerGenres, Set<Genre> candidateProfileGenres) {
+        if (callerGenres == null || candidateProfileGenres == null || callerGenres.isEmpty() || candidateProfileGenres.isEmpty()) {
+            return 0.0;
+        }
+        Set<UUID> callerGenreIds = callerGenres.stream().map(Genre::getId).collect(Collectors.toSet());
+        long commonCount = candidateProfileGenres.stream().map(Genre::getId).filter(callerGenreIds::contains).count();
+        return commonCount * 5.0;
+    }
+
     private double calculateExperienceScore(ExperienceLevel level1, ExperienceLevel level2) {
         if (level1 == null || level2 == null) return 0.0;
-
         int diff = Math.abs(level1.ordinal() - level2.ordinal());
         return switch (diff) {
             case 0 -> 20.0; // Exact match -> + 20 points
@@ -370,15 +419,5 @@ public class UserServiceImpl implements UserService {
             case 4 -> 4.0; // Should not happen
             default -> 0.0; // Should not happen
         };
-    }
-
-    // Helper to calculate genre match score
-    private double calculateGenreMatchScore(Set<Genre> genres1, Set<Genre> genres2) {
-        if (genres1 == null || genres2 == null || genres1.isEmpty() || genres2.isEmpty()) {
-            return 0.0;
-        }
-        Set<UUID> ids1 = genres1.stream().map(Genre::getId).collect(Collectors.toSet());
-        long commonCount = genres2.stream().map(Genre::getId).filter(ids1::contains).count();
-        return commonCount * 5.0; // Matching genre -> + 5 points
     }
 }

@@ -4,7 +4,9 @@ import com.spshpau.userservice.dto.userdto.UserDetailDto;
 import com.spshpau.userservice.dto.userdto.UserSearchCriteria;
 import com.spshpau.userservice.dto.userdto.UserSummaryDto;
 import com.spshpau.userservice.model.*;
+import com.spshpau.userservice.model.enums.ConnectionStatus;
 import com.spshpau.userservice.model.enums.ExperienceLevel;
+import com.spshpau.userservice.repositories.UserConnectionRepository;
 import com.spshpau.userservice.repositories.UserRepository;
 import com.spshpau.userservice.repositories.specifications.UserSpecification;
 import com.spshpau.userservice.services.exceptions.UserNotFoundException;
@@ -33,6 +35,9 @@ class UserServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserConnectionRepository userConnectionRepository;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -350,53 +355,81 @@ class UserServiceImplTest {
     }
 
     @Test
-    void findMatches_whenCurrentUserHasNoProfiles_shouldReturnUsers() {
+    void findMatches_whenCurrentUserHasNoProfiles_appliesConnectionPenaltyAndSorts() {
         UUID currentUserId = UUID.randomUUID();
         sampleUser.setId(currentUserId);
         sampleUser.setArtistProfile(null);
         sampleUser.setProducerProfile(null);
-        Pageable pageable = PageRequest.of(0, 10);
 
-        User otherUser = new User();
-        otherUser.setId(UUID.randomUUID());
-        otherUser.setUsername("candidateProducerGood");
-        otherUser.setActive(true);
-        ProducerProfile candidate1Pp = new ProducerProfile();
-        candidate1Pp.setId(otherUser.getId());
-        candidate1Pp.setAvailability(true);
-        candidate1Pp.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
-        otherUser.setProducerProfile(candidate1Pp);
-        candidate1Pp.setUser(otherUser);
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("username")); // Sort for stable order of 0-score items
 
-        User otherUser2 = new User();
-        otherUser2.setId(UUID.randomUUID());
-        otherUser2.setUsername("candidateProducerBad");
-        otherUser2.setActive(true);
+        // Candidate 1: Not connected, has an artist profile
+        User candidate1 = new User();
+        candidate1.setId(UUID.randomUUID());
+        candidate1.setUsername("candidateA_NotConnected_Artist");
+        candidate1.setActive(true);
+        ArtistProfile candidate1Ap = new ArtistProfile();
+        candidate1Ap.setId(candidate1.getId());
+        candidate1Ap.setUser(candidate1);
+        candidate1Ap.setExperienceLevel(ExperienceLevel.BEGINNER);
+        candidate1.setArtistProfile(candidate1Ap);
+
+
+        // Candidate 2: IS connected, has a producer profile
+        User candidate2 = new User();
+        candidate2.setId(UUID.randomUUID());
+        candidate2.setUsername("candidateB_Connected_Producer");
+        candidate2.setActive(true);
         ProducerProfile candidate2Pp = new ProducerProfile();
-        candidate2Pp.setId(otherUser2.getId());
-        candidate2Pp.setAvailability(false);
-        candidate2Pp.setExperienceLevel(ExperienceLevel.EXPERT);
-        Genre otherGenre = new Genre("Pop"); otherGenre.setId(UUID.randomUUID());
-        candidate2Pp.setGenres(Set.of(otherGenre));
-        otherUser2.setProducerProfile(candidate2Pp);
-        candidate2Pp.setUser(otherUser2);
+        candidate2Pp.setId(candidate2.getId());
+        candidate2Pp.setUser(candidate2);
+        candidate2Pp.setExperienceLevel(ExperienceLevel.ADVANCED);
+        candidate2.setProducerProfile(candidate2Pp);
 
-        List<User> otherUsers = Arrays.asList(otherUser, otherUser2);
 
+        // Candidate 3: Not connected, no relevant profile
+        User candidate3 = new User();
+        candidate3.setId(UUID.randomUUID());
+        candidate3.setUsername("candidateC_NotConnected_NoProfile");
+        candidate3.setActive(true);
+
+        List<User> allCandidatesInDb = Arrays.asList(candidate1, candidate2, candidate3);
+
+        // --- Mocking ---
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(sampleUser));
         when(userRepository.findBlockerUserIdsByBlockedId(currentUserId)).thenReturn(Collections.emptySet());
         when(userRepository.findBlockedUserIdsByBlockerId(currentUserId)).thenReturn(Collections.emptySet());
+        when(userRepository.findAll(any(Specification.class))).thenReturn(allCandidatesInDb);
 
-        Page<User> userPage = new PageImpl<>(otherUsers, pageable, otherUsers.size());
-        when(userRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(userPage);
+        // Mock connections
+        UserConnection connectionToCandidate2 = new UserConnection(sampleUser, candidate2);
+        connectionToCandidate2.setStatus(ConnectionStatus.ACCEPTED);
 
+        when(userConnectionRepository.findConnectionBetweenUsers(eq(currentUserId), eq(candidate1.getId()))).thenReturn(Optional.empty());
+        when(userConnectionRepository.findConnectionBetweenUsers(eq(currentUserId), eq(candidate2.getId()))).thenReturn(Optional.of(connectionToCandidate2));
+        when(userConnectionRepository.findConnectionBetweenUsers(eq(currentUserId), eq(candidate3.getId()))).thenReturn(Optional.empty());
+
+        // --- Execute ---
         Page<UserSummaryDto> result = userService.findMatches(currentUserId, pageable);
 
+        // --- Assert ---
         assertNotNull(result);
-        assertEquals(2, result.getTotalElements());
-        assertFalse(result.getContent().isEmpty());
+        assertEquals(3, result.getTotalElements(), "Should return all non-excluded candidates");
+        assertEquals(3, result.getContent().size());
+
+        // Expected order:
+        assertEquals("candidateA_NotConnected_Artist", result.getContent().get(0).getUsername());
+        assertEquals("candidateC_NotConnected_NoProfile", result.getContent().get(1).getUsername());
+        assertEquals("candidateB_Connected_Producer", result.getContent().get(2).getUsername());
+
+
         verify(userRepository).findById(currentUserId);
-        verify(userRepository, never()).findAll(any(Specification.class));
+        verify(userRepository).findAll(any(Specification.class)); // The main one should be called
+        verify(userRepository, never()).findAll(any(Specification.class), any(Pageable.class)); // Fallback should not be called
+
+        verify(userConnectionRepository, times(1)).findConnectionBetweenUsers(currentUserId, candidate1.getId());
+        verify(userConnectionRepository, times(1)).findConnectionBetweenUsers(currentUserId, candidate2.getId());
+        verify(userConnectionRepository, times(1)).findConnectionBetweenUsers(currentUserId, candidate3.getId());
     }
 
     @Test
@@ -411,11 +444,12 @@ class UserServiceImplTest {
         currentUser.setActive(true);
         ArtistProfile currentUserAp = new ArtistProfile();
         currentUserAp.setId(currentUserId);
-        currentUserAp.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
-        Genre commonGenre = new Genre("Rock"); commonGenre.setId(UUID.randomUUID());
-        currentUserAp.setGenres(Set.of(commonGenre));
-        currentUser.setArtistProfile(currentUserAp);
         currentUserAp.setUser(currentUser);
+        currentUserAp.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+        Genre commonGenre = new Genre("Rock");
+        commonGenre.setId(UUID.randomUUID());
+        currentUserAp.setGenres(new HashSet<>(Set.of(commonGenre)));
+        currentUser.setArtistProfile(currentUserAp);
 
 
         // Candidate User 1 (Producer, good match)
@@ -425,58 +459,66 @@ class UserServiceImplTest {
         candidate1.setActive(true);
         ProducerProfile candidate1Pp = new ProducerProfile();
         candidate1Pp.setId(candidate1.getId());
+        candidate1Pp.setUser(candidate1);
         candidate1Pp.setAvailability(true);
         candidate1Pp.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
-        candidate1Pp.setGenres(Set.of(commonGenre));
+        candidate1Pp.setGenres(new HashSet<>(Set.of(commonGenre)));
         candidate1.setProducerProfile(candidate1Pp);
-        candidate1Pp.setUser(candidate1);
 
 
         // Candidate User 2 (Producer, less match)
         User candidate2 = new User();
         candidate2.setId(UUID.randomUUID());
-        candidate2.setUsername("candidateProducerBad");
+        candidate2.setUsername("candidateProducerLessMatch");
         candidate2.setActive(true);
         ProducerProfile candidate2Pp = new ProducerProfile();
         candidate2Pp.setId(candidate2.getId());
+        candidate2Pp.setUser(candidate2);
         candidate2Pp.setAvailability(false);
         candidate2Pp.setExperienceLevel(ExperienceLevel.EXPERT);
-        Genre otherGenre = new Genre("Pop"); otherGenre.setId(UUID.randomUUID());
-        candidate2Pp.setGenres(Set.of(otherGenre));
+        Genre otherGenre = new Genre("Pop");
+        otherGenre.setId(UUID.randomUUID());
+        candidate2Pp.setGenres(new HashSet<>(Set.of(otherGenre)));
         candidate2.setProducerProfile(candidate2Pp);
-        candidate2Pp.setUser(candidate2);
 
         // Candidate User 3
         User candidate3 = new User();
         candidate3.setId(UUID.randomUUID());
-        candidate3.setUsername("candidateArtist");
+        candidate3.setUsername("candidateArtistOnly");
         candidate3.setActive(true);
         ArtistProfile candidate3Ap = new ArtistProfile();
         candidate3Ap.setId(candidate3.getId());
-        candidate3.setArtistProfile(candidate3Ap);
         candidate3Ap.setUser(candidate3);
+        candidate3Ap.setExperienceLevel(ExperienceLevel.BEGINNER);
+        candidate3.setArtistProfile(candidate3Ap);
 
 
-        List<User> allCandidates = Arrays.asList(candidate1, candidate2, candidate3);
+        List<User> allCandidatesInDb = Arrays.asList(candidate1, candidate2, candidate3);
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(currentUser));
         when(userRepository.findBlockerUserIdsByBlockedId(currentUserId)).thenReturn(Collections.emptySet());
         when(userRepository.findBlockedUserIdsByBlockerId(currentUserId)).thenReturn(Collections.emptySet());
-        when(userRepository.findAll(any(Specification.class))).thenReturn(allCandidates);
 
+        when(userRepository.findAll(any(Specification.class))).thenReturn(allCandidatesInDb);
 
+        when(userConnectionRepository.findConnectionBetweenUsers(eq(currentUserId), any(UUID.class)))
+                .thenReturn(Optional.empty());
+
+        // --- Execute ---
         Page<UserSummaryDto> resultPage = userService.findMatches(currentUserId, pageable);
 
+        // --- Assert ---
         assertNotNull(resultPage);
         assertEquals(3, resultPage.getTotalElements());
-        assertFalse(resultPage.getContent().isEmpty());
+        assertEquals(3, resultPage.getContent().size());
 
         assertEquals("candidateProducerGood", resultPage.getContent().get(0).getUsername());
-        if (resultPage.getContent().size() > 1) {
-            assertEquals("candidateProducerBad", resultPage.getContent().get(1).getUsername());
-        }
+        assertEquals("candidateProducerLessMatch", resultPage.getContent().get(1).getUsername());
+        assertEquals("candidateArtistOnly", resultPage.getContent().get(2).getUsername());
 
 
         verify(userRepository).findAll(any(Specification.class));
+        verify(userConnectionRepository, times(allCandidatesInDb.size()))
+                .findConnectionBetweenUsers(eq(currentUserId), any(UUID.class));
     }
 }
